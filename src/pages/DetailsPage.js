@@ -228,6 +228,12 @@ class DetailsPage extends Page {
                         <div class="guest-stars-row row-items" id="guest-stars-row"></div>
                     </section>
                     
+                    <!-- Included In (Parent Collections) -->
+                    <section class="details-included-in media-row hidden" id="included-in-section">
+                        <h2 class="row-title" data-i18n="HeaderIncludedIn">Included In</h2>
+                        <div class="included-in-row row-items" id="included-in-row"></div>
+                    </section>
+
                     <!-- Similar items -->
                     <section class="details-similar media-row hidden" id="similar-section">
                         <h2 class="row-title" data-i18n="HeaderMoreLikeThis">More Like This</h2>
@@ -464,6 +470,10 @@ class DetailsPage extends Page {
 
             if (this._item.Type !== 'Season') {
                 loadTasks.push(this._loadSimilar());
+            }
+
+            if (['Movie', 'Series', 'Season', 'Episode'].includes(this._item.Type)) {
+                loadTasks.push(this._loadIncludedIn());
             }
 
             await Promise.all(loadTasks);
@@ -2402,6 +2412,63 @@ class DetailsPage extends Page {
             },
             focusSectionName: 'details-similar',
             cardType: useSquare ? 'square' : 'poster'
+        });
+    }
+
+    /**
+     * Fetch collections that contain this item.
+     * This uses a modern Jellyfin API endpoint (10.9.0+) and fails gracefully on older servers.
+     */
+    async _loadIncludedIn() {
+        // Only relevant for Movies, Series, and their children
+        if (!['Movie', 'Series', 'Season', 'Episode'].includes(this._item.Type)) return;
+
+        try {
+            const cacheKey = `details:includedIn:${this._itemId}`;
+            const cachedCollections = state.get(cacheKey);
+
+            if (cachedCollections) {
+                this._includedIn = cachedCollections;
+            } else {
+                // This call will return a 404 on Jellyfin < 10.9.0
+                const response = await api.getItemCollections(this._itemId);
+                this._includedIn = response.Items || [];
+
+                if (this._includedIn.length > 0) {
+                    state.set(cacheKey, this._includedIn);
+                }
+            }
+
+            if (this._includedIn.length > 0) {
+                this._renderIncludedIn();
+            }
+        } catch (error) {
+            // Log as debug as this endpoint is part of a pending Jellyfin PR (#15516)
+            // It will fail gracefully (404) on all current stable servers.
+            log.debug('Parent collections API not available on this server yet (Requires PR #15516)');
+            
+            // Ensure section remains hidden
+            const section = this.$('#included-in-section');
+            if (section) section.classList.add('hidden');
+        }
+    }
+
+    /**
+     * Render the "Included In" collections row.
+     */
+    _renderIncludedIn() {
+        if (!this._includedIn || this._includedIn.length === 0) return;
+
+        this._renderVirtualRow({
+            sectionId: 'included-in-section',
+            listId: 'included-in-row',
+            items: this._includedIn,
+            isLandscape: false,
+            renderCard: (item) => {
+                return this._renderMediaCard(item, false, 'poster');
+            },
+            focusSectionName: 'details-included-in',
+            cardType: 'poster'
         });
     }
 

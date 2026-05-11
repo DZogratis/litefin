@@ -673,13 +673,19 @@ html[data-layout-tier="ultra-legacy"] .details-actions .btn-icon svg {
     contain: layout style;
 }
 
-/* Seasons & Similar */
+/* Seasons, Similar & Included In */
 .seasons-row,
 .similar-row,
+.included-in-row,
 .details-season-episodes,
 .details-guest-stars {
     margin-bottom: 40px;
     /* PERFORMANCE: Isolate rows from each other */
+    contain: layout style;
+}
+
+.details-included-in {
+    margin-bottom: 40px;
     contain: layout style;
 }
 

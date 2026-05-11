@@ -280,8 +280,13 @@ export class ApiClient {
                 throw networkError;
             }
 
-            log.error(`Request to ${endpoint} failed:`, error.message || error);
-            eventBus.emit('api:error', { endpoint, error });
+            // Suppress error logging if silent option is provided
+            // This is useful for feature-detection or endpoints that might not exist on older servers
+            if (!options.silent) {
+                log.error(`Request to ${endpoint} failed:`, error.message || error);
+                eventBus.emit('api:error', { endpoint, error });
+            }
+            
             throw error;
         }
     }
@@ -714,6 +719,22 @@ export class ApiClient {
 
         return this.get(`/Items/${itemId}/Similar`, { ...defaults, ...params });
     }
+
+    /**
+     * Get collections that contain the specified item.
+     * 
+     * NOTE: This endpoint was introduced in Jellyfin 10.9.0.
+     * On older servers, this call will return a 404. It should be handled gracefully.
+     * 
+     * @param {string} itemId - The item ID to check
+     * @returns {Promise<Object>} Items response containing the collections
+     */
+    async getItemCollections(itemId) {
+        return this.get(`/Users/${this._userId}/Items/${itemId}/Collections`, {
+            Fields: 'PrimaryImageAspectRatio,BasicSyncInfo'
+        }, { silent: true });
+    }
+
 
     async getSeasons(seriesId) {
         return this.get(`/Shows/${seriesId}/Seasons`, {
